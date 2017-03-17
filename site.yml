@@ -33,18 +33,20 @@
 
     - include: ./tasks/aptrepos.yml
 
-    - name: grab the packages into local cache
-      command: >
-        apt-get install -y --download-only 
-        {{ debian_ceph_packages|join(' ') }}
-        {{ debian_radosgw_packages|join(' ') }}
+    - include: ./tasks/grab_packages.yml
 
 - hosts: mons
   become: True
   serial: 1
   tasks:
     - include: ./tasks/install_upgrade_packages.yml
+    - name: find out currently running mon version
+      command: >
+        ceph daemon mon.{{ inventory_hostname_short }} version
+      register: running_mon_version
     - include: ./tasks/restart_mons.yml
+      when:
+        - "{{ (running_mon_version.stdout|from_json).version != ceph_candidate_package_version.stdout }}"
   vars:
     mon_restart_delay: 5
     mon_restart_attempts: 20
