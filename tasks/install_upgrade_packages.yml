@@ -5,4 +5,6 @@
     apt-get -o Dpkg::Options::="--force-overwrite" -y install
     {{ debian_radosgw_packages|join(' ') }}
     {{ debian_ceph_packages|join(' ') }}
+  when:
+    - ceph_package_version.stdout != ceph_candidate_package_version.stdout
 
