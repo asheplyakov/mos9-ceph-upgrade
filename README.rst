@@ -1,43 +1,47 @@
-============================================================
-Non-disrupting Ceph upgrade from 0.94.6 to 0.94.9 in MOS 9.x
-============================================================
+========================================
+Playbook for non-disrupting Ceph upgrade
+========================================
 
 Synopsis
 --------
 
-* `Bugfixes and improvements`_
+This document describes how to upgrade a Ceph cluster deployed by Fuel_.
+The playbook works fine with clusters deployed by `ceph-ansible`_ and
+possibly other tools, however you might need to adjust ``ansible.cfg``.
+
+* `Supported Ceph versions`_
 * `Preparations`_
 * `Preflight checks`_
 * `Upgrade ceph cluster`_
 * `Restart VMs`_
 
 
-Bugfixes and improvements
---------------------------
+Supported Ceph versions
+-----------------------
 
-The most notable changes:
+The playbook works with Hammer and Jewel Ceph releases, *provided that both
+the currently running and target Ceph versions have no bugs hindering the upgrade*.
+In reality even the patchlevel releases of the same branch happen to cause
+upgrade issues, see `bug #17386`_, `bug #18582`_. It's a good idea to
+perform an upgrade of a test cluster before upgrading a production one using
+the same versions of Ceph (both ``target`` and ``current`` versions).
 
-* librbd: possible QEMU deadlock after creating image snapshots,
-  http://tracker.ceph.com/issues/14988
-* osd: corruption when min_read_recency_for_promote > 1,
-  http://tracker.ceph.com/issues/15171
-* data corruption using RBD with caching enabled,
-  http://tracker.ceph.com/issues/17545
-* monitor crashes on a command without a prefix (CVE-2016-5009),
-  http://tracker.ceph.com/issues/16297
-* OSD reports ENOTEMPTY and crashes,
-  http://tracker.ceph.com/issues/14766
-* osd: Unable to bring up OSD’s after dealing with FULL cluster,
-  http://tracker.ceph.com/issues/14428
-* mon: implement reweight-by-utilization feature,
-  http://tracker.ceph.com/issues/15054
-* "no Last-Modified, Content-Size and X-Object-Manifest headers if no
-  segments in DLO manifest",
-  http://tracker.ceph.com/issues/15812
+The following upgrades are known to work:
 
-See the `official changelog`_ for more details.
+* From 0.94.6 (Hammer) to 0.94.9 and 0.94.10 patched by Mirantis
+* From 0.94.9 patched by Mirantis to 10.2.6 (Jewel), both upstream and
+  Mirantis' version
+* From 0.94.10 patched by Mirantis to 10.2.6 (Jewel), both upstream and
+  Mirantis' version
 
-.. _official changelog: http://docs.ceph.com/docs/hammer/release-notes/#v0-94-8-hammer
+The following upgrades are known to *NOT* work:
+
+* From 0.94.6 (Hammer) to upstream 0.94.7 and newer Hammer point releases
+* From 0.94.7 and newer Hammer point releases to upstream Jewel 10.2.5 and
+  earlier Jewel point releases
+
+The above lists are (very) *incomplete*. Please use a test cluster to find
+out if the upgrade causes any problems.
 
 
 Preparations
@@ -109,4 +113,7 @@ the VMs (and daemons) which haven't been restarted will keep using the old
 the `rbd cache data corruption`_ bug.
 
 .. _rbd cache data corruption: http://tracker.ceph.com/issues/17545
-
+.. _Fuel: https://wiki.openstack.org/wiki/Fuel
+.. _ceph-ansible: https://github.com/ceph/ceph-ansible
+.. _bug #17386: http://tracker.ceph.com/issues/17386
+.. _bug #18582: http://tracker.ceph.com/issues/18582
