@@ -1,0 +1,16 @@
+---
+
+- name: fail on downgrade attempt
+  fail: msg="Downgrading Ceph can destroy data, aborting"
+  when:
+    - hostvars[item].compare_pkg_versions.rc != 0
+  with_items: "{{ groups.all }}"
+  run_once: True
+
+- name: fail if candidate package version is not the same on all hosts
+  fail: msg="Different version of ceph is going to be installed on {{ item }}, aborting"
+  when:
+    - ceph_candidate_package_version.stdout != hostvars[item].ceph_candidate_package_version.stdout
+  with_items: "{{ groups.all }}"
+  run_once: True
+

@@ -32,6 +32,22 @@
 
     - include: ./tasks/aptrepos.yml
 
+    - include: ./tasks/packages_version_check_p1.yml
+
+
+# note: version check completes here since all hostvars have been populated
+# on previous step
+
+- hosts:
+    - mons
+    - osds
+    - clients
+    - rgws
+  become: True
+  tasks:
+    - include: ./tasks/packages_version_check_p2.yml
+      when: "{{ not(skip_package_version_check|default(False)|bool) }}"
+
     - include: ./tasks/grab_packages.yml
 
 - hosts: mons

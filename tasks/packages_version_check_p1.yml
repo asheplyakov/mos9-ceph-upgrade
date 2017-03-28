@@ -1,0 +1,29 @@
+---
+# Collect the current and the candidate Ceph packages versions.
+# Note: this needs to be a separate step since data on all nodes
+# must be collected to check if it's safe to proceed.
+
+- name: find out currently installed ceph package version
+  shell: >
+    apt-cache policy ceph | awk '/Installed:/ { print $2 }'
+  register: ceph_package_version
+
+- name: find out ceph package candidate version
+  shell: >
+    apt-cache policy ceph | awk '/Candidate:/ { print $2 }'
+  register: ceph_candidate_package_version
+
+# Note: it's OK if the current and the candidate versions are the same,
+# such a node will be silently skipped. This is required to make the upgrade
+# procedure idempotent.
+
+- name: check if a newer version of Ceph is going to be installed
+  command: >
+    dpkg --compare-versions
+    {{ ceph_candidate_package_version.stdout }}
+    ge
+    {{ ceph_package_version.stdout }}
+  register: compare_pkg_versions
+  failed_when: False
+
+

@@ -4,20 +4,11 @@
 # - fail early if packages can't be downloaded on some node
 # - reduce the time when multiple versions of ceph daemons are running
 
-- name: find out currently installed ceph package version
-  shell: >
-    apt-cache policy ceph | awk '/Installed:/ { print $2 }'
-  register: ceph_package_version
-
-- name: find out ceph package candidate version
-  shell: >
-    apt-cache policy ceph | awk '/Candidate:/ { print $2 }'
-  register: ceph_candidate_package_version
-
 - name: grab the packages into local cache
   command: >
     apt-get install -y --download-only
     {{ debian_ceph_packages|join(' ') }}
     {{ debian_radosgw_packages|join(' ') }}
   when:
+    - not(skip_package_prefetch|default(False)|bool)
     - ceph_package_version.stdout != ceph_candidate_package_version.stdout
