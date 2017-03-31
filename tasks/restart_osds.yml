@@ -21,18 +21,36 @@
     /etc/init/ceph-osd.conf
   register: ceph_group
 
-- name: disable data rebalancing and scrubbing
-  command: ceph osd set {{ item }}
-  with_items:
-    - noout
-    - noscrub
-    - "nodeep-scrub"
-  delegate_to: "{{ groups.mons[0] }}"
-
 - name: restart OSDs
   include: ./restart_single_osd.yml
   with_items: "{{ osd_ids.stdout_lines|default([]) }}"
 
+- name: find out current OSD map flags, p1
+  command: ceph osd getmap -o /tmp/osdmap_fin.bin
+  delegate_to: "{{ groups.mons[0] }}"
+  when: inventory_hostname == groups.osds[-1]
+
+- name: find out current OSD map flags, p2
+  shell: >
+    osdmaptool --print /tmp/osdmap_fin.bin |
+    awk '/^flags/ { gsub(",", "\",\"", $2); print "[\"" $2 "\"]" }'
+  register: osdmap_final_flags
+  delegate_to: "{{ groups.mons[0] }}"
+  when: inventory_hostname == groups.osds[-1]
+
+# Unset flags after *all* OSDs have been successfully restarted. Ansible makes
+# this a bit tricky. That is, if an action of a play has failed for some host,
+# further actions (of that an subsequent plays) will be skipped for *that host
+# only*. However the OSD map is the same for all hosts in the cluster.
+# Thus if at least one OSD node has been successfully updated the action
+# which unsets noout|noscrub|nodeep-scrub flags will be executed, and data
+# rebalancing will start shortly after that (which is definitely not wanted).
+#
+# Hence the inventory_hostname == groups.osds[-1] condition. This way
+# the flags will be unset only after the last OSD has been successfully
+# upgraded and restarted. This works only for serial == 1 and assumes that
+# ansible processes host in inventory order.
+#
 - name: reenable data rebalancing and scrubbing
   command: ceph osd unset {{ item }}
   with_items:
@@ -40,4 +58,7 @@
     - noscrub
     - "nodeep-scrub"
   delegate_to: "{{ groups.mons[0] }}"
+  when:
+    - inventory_hostname == groups.osds[-1]
+    - "{{ item in (osdmap_final_flags.stdout|default([])|from_json) }}"
 

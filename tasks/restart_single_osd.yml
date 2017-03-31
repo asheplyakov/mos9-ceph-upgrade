@@ -21,6 +21,33 @@
     - "{{ (running_osd_version.stdout|from_json).version == ceph_candidate_package_version.stdout }}"
     - "{{ ceph_user.stdout == '' or osd_dir_stat.stat.pw_name == ceph_user.stdout }}"
 
+- name: find out current OSD map flags, p1
+  command: ceph osd getmap -o /tmp/osdmap.bin
+  delegate_to: "{{ groups.mons[0] }}"
+  when:
+    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+
+- name: find out current OSD map flags, part 2
+  shell: >
+    osdmaptool --print /tmp/osdmap.bin |
+    awk '/^flags/ { gsub(",", "\",\"", $2); print "[\"" $2 "\"]" }'
+  register: osdmap_flags
+  delegate_to: "{{ groups.mons[0] }}"
+  when:
+    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+
+- name: disable data rebalancing and scrubbing
+  command: >
+    ceph osd set {{ item }}
+  with_items:
+    - noout
+    - noscrub
+    - nodeep-scrub
+  when:
+    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - "{{ item not in (osdmap_flags.stdout|from_json) }}"
+  delegate_to: "{{ groups.mons[0] }}"
+
 - name: stop OSD {{ osd_id }}
   service: >
     name=ceph-osd
