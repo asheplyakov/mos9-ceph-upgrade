@@ -1,33 +1,36 @@
 ---
 
-- name: find out osd.{{ item }} version
+- set_fact:
+    osd_id: "{{ item }}"
+
+- name: find out osd.{{ osd_id }} version
   command: >
-    ceph daemon osd.{{ item }} version
+    ceph daemon osd.{{ osd_id }} version
   register:
     running_osd_version
 
 - name: find out OSD data owner
   stat: >
-    path=/var/lib/ceph/osd/{{ cluster_name }}-{{ item }}
+    path=/var/lib/ceph/osd/{{ cluster_name }}-{{ osd_id }}
   register: osd_dir_stat
 
-- name: check if osd.{{ item }} should be restarted
+- name: check if osd.{{ osd_id }} should be restarted
   set_fact:
     dont_restart_osd: true
   when:
     - "{{ (running_osd_version.stdout|from_json).version == ceph_candidate_package_version.stdout }}"
     - "{{ ceph_user.stdout == '' or osd_dir_stat.stat.pw_name == ceph_user.stdout }}"
 
-- name: stop OSD {{ item }}
+- name: stop OSD {{ osd_id }}
   service: >
     name=ceph-osd
     state=stopped
-    args=id={{ item }}
+    args=id={{ osd_id }}
   when: "{{ not(dont_restart_osd|default(False)|bool) }}"
 
 - name: fix OSD data ownership
   file: >
-    path=/var/lib/ceph/osd/{{ cluster_name }}-{{ item }}
+    path=/var/lib/ceph/osd/{{ cluster_name }}-{{ osd_id }}
     state=directory
     owner={{ ceph_user.stdout }}
     group={{ ceph_group.stdout }}
@@ -38,11 +41,11 @@
     - osd_dir_stat.stat.pw_name != ceph_user.stdout
     - "{{ not(dont_restart_osd|default(False)|bool) }}"
 
-- name: start OSD {{ item }}
+- name: start OSD {{ osd_id }}
   service: >
     name=ceph-osd
     state=started
-    args=id={{ item }}
+    args=id={{ osd_id }}
   when: "{{ not(dont_restart_osd|default(False)|bool) }}"
 
 # Wait until all PGs are in the `active+clean' state.
