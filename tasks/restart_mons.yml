@@ -23,11 +23,18 @@
     /etc/init/ceph-mon.conf
   register: ceph_mon_group
 
-- name: stop ceph monitor
+- name: stop ceph monitor (upstart)
   service: >
     name=ceph-mon
     state=stopped
     args=id={{ inventory_hostname_short }}
+  when: ansible_service_mgr == "upstart"
+
+- name: stop ceph monitor (systemd)
+  service: >
+    name=ceph-mon@{{ ansible_hostname }}
+    state=stopped
+  when: ansible_service_mgr == "systemd"
 
 - name: fix mon data ownership
   file: >
@@ -41,11 +48,18 @@
     - ceph_mon_user.stdout != ''
     - mon_dir_stat.stat.pw_name != ceph_mon_user.stdout
 
-- name: start ceph monitor
+- name: start ceph monitor (upstart)
   service: >
     name=ceph-mon
     state=started
     args=id={{ inventory_hostname_short }}
+  when: ansible_service_mgr == "upstart"
+
+- name: start ceph monitor (systemd)
+  service:
+    name=ceph-mon@{{ ansible_hostname }}
+    state=started
+  when: ansible_service_mgr == "systemd"
 
 - name: wait for monitor to start up
   wait_for: >

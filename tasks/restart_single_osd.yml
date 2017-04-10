@@ -48,12 +48,22 @@
     - "{{ item not in (osdmap_flags.stdout|from_json) }}"
   delegate_to: "{{ groups.mons[0] }}"
 
-- name: stop OSD {{ osd_id }}
+- name: stop OSD {{ osd_id }} (upstart)
   service: >
     name=ceph-osd
     state=stopped
     args=id={{ osd_id }}
-  when: "{{ not(dont_restart_osd|default(False)|bool) }}"
+  when:
+    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - ansible_service_mgr == "upstart"
+
+- name: stop OSD {{ osd_id }} (systemd)
+  service: >
+    name=ceph-osd@{{ osd_id }}
+    state=stopped
+  when:
+    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - ansible_service_mgr == "systemd"
 
 - name: fix OSD data ownership
   file: >
@@ -68,12 +78,22 @@
     - osd_dir_stat.stat.pw_name != ceph_user.stdout
     - "{{ not(dont_restart_osd|default(False)|bool) }}"
 
-- name: start OSD {{ osd_id }}
+- name: start OSD {{ osd_id }} (upstart)
   service: >
     name=ceph-osd
     state=started
     args=id={{ osd_id }}
-  when: "{{ not(dont_restart_osd|default(False)|bool) }}"
+  when:
+    -"{{ not(dont_restart_osd|default(False)|bool) }}"
+    - ansible_service_mgr == "upstart"
+
+- name: start OSD {{ osd_id }} (systemd)
+  service: >
+    name=ceph-osd@{{ osd_id }}
+    state=started
+  when:
+    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - ansible_service_mgr == "systemd"
 
 # Wait until all PGs are in the `active+clean' state.
 
