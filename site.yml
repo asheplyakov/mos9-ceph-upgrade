@@ -31,6 +31,7 @@
       when: "{{ do_time_sync|default(False)|bool }}"
 
     - include: ./tasks/aptrepos.yml
+      tags: apt_conf
 
     - include: ./tasks/packages_version_check_p1.yml
 
