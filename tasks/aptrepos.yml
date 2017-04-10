@@ -27,7 +27,7 @@
     owner=root
     group=root
     mode=0644
-  when: "{{ use_decapod_ceph_repo|default(True)|bool }}"
+  when: "{{ not(use_mos_ceph|default(False)|bool) }}"
 
 - name: enable untrusted repositories
   template: >
