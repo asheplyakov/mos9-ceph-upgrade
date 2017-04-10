@@ -2,6 +2,7 @@
 
 - set_fact:
     osd_id: "{{ item }}"
+    restart_osd: true
 
 - name: find out osd.{{ osd_id }} version
   command: >
@@ -29,7 +30,7 @@
 
 - name: check if osd.{{ osd_id }} should be restarted
   set_fact:
-    dont_restart_osd: true
+    restart_osd: false
   when:
     - "{{ (running_osd_version.stdout|from_json).version == ceph_candidate_package_version.stdout }}"
     - "{{ ceph_user.stdout == '' or osd_dir_stat.stat.pw_name == ceph_user.stdout }}"
@@ -39,7 +40,7 @@
   command: ceph osd getmap -o /tmp/osdmap.bin
   delegate_to: "{{ groups.mons[0] }}"
   when:
-    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - "{{ restart_osd|bool }}"
 
 - name: find out current OSD map flags, part 2
   shell: >
@@ -48,7 +49,7 @@
   register: osdmap_flags
   delegate_to: "{{ groups.mons[0] }}"
   when:
-    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - "{{ restart_osd|bool }}"
 
 - name: disable data rebalancing and scrubbing
   command: >
@@ -58,7 +59,7 @@
     - noscrub
     - nodeep-scrub
   when:
-    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - "{{ restart_osd|bool }}"
     - "{{ item not in (osdmap_flags.stdout|from_json) }}"
   delegate_to: "{{ groups.mons[0] }}"
 
@@ -67,7 +68,7 @@
     name=ceph-osd
     state=stopped
     args=id={{ osd_id }}
-  when: "{{ not(dont_restart_osd|default(False)|bool) }}"
+  when: "{{ restart_osd|bool }}"
 
 - name: fix OSD data ownership
   file: >
@@ -80,6 +81,7 @@
   when:
     - ceph_user.stdout != ''
     - osd_dir_stat.stat.pw_name != ceph_user.stdout
+    - "{{ restart_osd|bool }}"
 
 - name: fix OSD journal ownership
   file: >
@@ -92,14 +94,14 @@
   when:
     - ceph_user.stdout != ''
     - osd_journal_stat.stat.pw_name != ceph_user.stdout
-    - "{{ not(dont_restart_osd|default(False)|bool) }}"
+    - "{{ restart_osd|bool }}"
 
 - name: start OSD {{ osd_id }}
   service: >
     name=ceph-osd
     state=started
     args=id={{ osd_id }}
-  when: "{{ not(dont_restart_osd|default(False)|bool) }}"
+  when: "{{ restart_osd|bool }}"
 
 # Wait until all PGs are in the `active+clean' state.
 
@@ -111,4 +113,4 @@
          (ceph_health_post.stdout|from_json).pgmap.pgs_by_state.0.state_name == "active+clean"
   retries: "{{ osd_restart_attempts }}"
   delay: "{{ osd_restart_delay }}"
-  when: "{{ not(dont_restart_osd|default(False)|bool) }}"
+  when: "{{ restart_osd|bool }}"
