@@ -14,7 +14,7 @@
     - mons
     - osds
     - clients
-
+    - rgws
   become: True
   pre_tasks:
     - name: install pre-dependencies
