@@ -12,7 +12,20 @@
 - name: find out OSD data owner
   stat: >
     path=/var/lib/ceph/osd/{{ cluster_name }}-{{ osd_id }}
+    get_checksum=false
+    get_md5=false
+    mime=false
   register: osd_dir_stat
+
+# note: OSD journal can be located on a different block device (partition)
+- name: find out OSD journal owner
+  stat: >
+    path=/var/lib/ceph/osd/{{ cluster_name }}-{{ osd_id }}/journal
+    follow=true
+    get_checksum=false
+    get_md5=false
+    mime=false
+  register: osd_journal_stat
 
 - name: check if osd.{{ osd_id }} should be restarted
   set_fact:
@@ -20,6 +33,7 @@
   when:
     - "{{ (running_osd_version.stdout|from_json).version == ceph_candidate_package_version.stdout }}"
     - "{{ ceph_user.stdout == '' or osd_dir_stat.stat.pw_name == ceph_user.stdout }}"
+    - "{{ ceph_user.stdout == '' or osd_journal_stat.stat.pw_name == ceph_user.stdout }}"
 
 - name: find out current OSD map flags, p1
   command: ceph osd getmap -o /tmp/osdmap.bin
@@ -66,6 +80,18 @@
   when:
     - ceph_user.stdout != ''
     - osd_dir_stat.stat.pw_name != ceph_user.stdout
+
+- name: fix OSD journal ownership
+  file: >
+    path=/var/lib/ceph/osd/{{ cluster_name }}-{{ osd_id }}/journal
+    follow=yes
+    state=file
+    owner={{ ceph_user.stdout }}
+    group={{ ceph_group.stdout }}
+    mode=0770
+  when:
+    - ceph_user.stdout != ''
+    - osd_journal_stat.stat.pw_name != ceph_user.stdout
     - "{{ not(dont_restart_osd|default(False)|bool) }}"
 
 - name: start OSD {{ osd_id }}
